@@ -1,16 +1,14 @@
 package com.configurations;
 
 import com.microsoft.playwright.*;
-import org.junit.runners.Parameterized;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.annotations.*;
 
 import java.io.IOException;
-import java.lang.reflect.*;
-import java.nio.file.*;
-
-
+import java.lang.reflect.Method;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 
 public class BaseTest {
 
@@ -20,8 +18,8 @@ public class BaseTest {
     protected Page page;
     Logger log = LoggerFactory.getLogger(BaseTest.class);
 
-    @BeforeSuite
-    @Parameterized.Parameters(name = "browserName")
+    @BeforeTest
+    @Parameters("browserName")
     public void launchBrowser(@Optional("chromium") String browserName) {
         playwright = Playwright.create();
 
@@ -47,32 +45,36 @@ public class BaseTest {
     @BeforeMethod
     public void createContextAndPage() {
         context = browser.newContext();
+        page = context.newPage();
         log.info("Start tracing");
         context.tracing().start(new Tracing.StartOptions()
                 .setSnapshots(true)
                 .setScreenshots(true)
                 .setSources(true));
-        page = context.newPage();
     }
-
 
     @AfterMethod
     public void closeContext(Method method) throws IOException {
         if (context != null) {
             Files.createDirectories(Paths.get("trace-records"));
-            String testNameAnnotation = method.getAnnotation(Test.class).testName();
-            String traceName = testNameAnnotation.isEmpty() ? method.getName() : testNameAnnotation;
+            String traceName = method.getAnnotation(Test.class).testName();
+            if (traceName == null || traceName.isEmpty()) {
+                traceName = method.getName();
+            }
             log.info("Stop tracing and save zip");
             context.tracing().stop(new Tracing.StopOptions()
                     .setPath(Paths.get("trace-records/" + traceName + ".zip")));
-            System.out.println("\u001B[34m[INFO] Trace exported: trace-records/" + traceName + ".zip\u001B[0m");
             context.close();
         }
     }
 
-    @AfterSuite
+    @BeforeTest
     public void closeBrowser() {
-        if (browser != null) browser.close();
-        if (playwright != null) playwright.close();
+        try {
+            if (browser != null) browser.close();
+            if (playwright != null) playwright.close();
+        } catch (PlaywrightException e) {
+            log.warn("Browser/playwright already closed: " + e.getMessage());
+        }
     }
 }
