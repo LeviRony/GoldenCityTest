@@ -15,7 +15,7 @@ public class BaseTestApi {
         playwright = Playwright.create();
         request = playwright.request().newContext(
                 new APIRequest.NewContextOptions()
-                        .setBaseURL(goldenCityUrl()) // sample API
+                        .setBaseURL(goldenCityUrl())
         );
     }
 
